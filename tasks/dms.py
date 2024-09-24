@@ -1,0 +1,43 @@
+from typing import Literal
+from tasks.base import TaskDataset
+from tasks.utils import get_one_hot
+
+
+class DMSDataset(TaskDataset):
+    def __init__(
+        self,
+        dataset_size: int,
+        feature: Literal["category", "identity", "position"] = "category",
+        pad_to: int = 0,
+        category_size: int = 2,
+        identity_size: int = 2,
+        position_size: int = 4,
+        std: float = 0,
+    ):
+        task_len = max(2, pad_to)
+        super(DMSDataset, self).__init__(
+            dataset_size=dataset_size,
+            task_len=task_len,
+            category_size=category_size,
+            identity_size=identity_size,
+            position_size=position_size,
+            std=std,
+        )
+
+        self.feature = feature
+        self.task_index = get_one_hot({
+            "category": 1,
+            "identity": 2,
+            "position": 3,
+        }[feature])
+
+        self.reset()
+
+    def _reset(self, i):
+        category, identity, position = self._set_random(self.dataset[i, 0])
+        self.actions[i, 1], _, _, _ = self._set_data(
+            self.dataset[i, 1], category, identity, position)
+
+    def reset(self):
+        for i in range(self.dataset_size):
+            self._reset(i)
