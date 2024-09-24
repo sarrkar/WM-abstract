@@ -34,8 +34,8 @@ class CustomRNN(nn.Module):
             out, _ = self.rnn(x, h0)
         
        
-        out = self.fc(out)  # Take the output of the last time step
+        lout = self.fc(out)  # Take the output of the last time step
         
-        return out
+        return lout, out
 
 
