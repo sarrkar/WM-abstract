@@ -16,7 +16,8 @@ def train_model(model, train_dataloader, val_dataloader, num_epochs=2000, learni
                   'interdms_ABAB_category', 'interdms_ABAB_identity', 'interdms_ABAB_position']
 
     task_confusion_matrices = {task_name: np.zeros((3, 3), dtype=int) for task_name in task_names}
-    dms_position_confusion = np.zeros((16, 16), dtype=int)
+    dms_confusion = {key: [[[] for _ in range(16 if key == 'dms_identity' else 4)] for _ in range(16 if key == 'dms_identity' else 4)] for key in ['dms_category', 'dms_identity', 'dms_position']}
+    dms_embs = {key: [[] for _ in range(16 if key == 'dms_identity' else 4)] for key in ['dms_category', 'dms_identity', 'dms_position']}
 
     model.train()
     for epoch in range(num_epochs):
