@@ -26,7 +26,7 @@ class CustomRNN(nn.Module):
     
     def forward(self, x):
         h0 = self.init_hidden(x.size(0)).to(x.device)
-        
+
         if self.rnn_type == 'LSTM':
             c0 = self.init_hidden(x.size(0)).to(x.device)
             out, _ = self.rnn(x, (h0, c0))

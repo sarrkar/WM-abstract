@@ -6,13 +6,15 @@ from tasks.utils import get_one_hot
 class DMSDataset(TaskDataset):
     def __init__(
         self,
-        dataset_size: int,
+        dataset_size: int = 128,
         feature: Literal["category", "identity", "position"] = "category",
         pad_to: int = 0,
-        category_size: int = 2,
+        category_size: int = 4,
         identity_size: int = 2,
         position_size: int = 4,
         std: float = 0,
+        task_index_base_value: int = 40,
+        total_tasks: int = 43
     ):
         task_len = max(2, pad_to)
         super(DMSDataset, self).__init__(
@@ -26,10 +28,10 @@ class DMSDataset(TaskDataset):
 
         self.feature = feature
         self.task_index = get_one_hot({
-            "category": 1,
-            "identity": 2,
-            "position": 3,
-        }[feature])
+            "position": task_index_base_value + 1,
+            "identity": task_index_base_value + 2,
+            "category": task_index_base_value + 3,
+        }[feature], total = total_tasks)
 
         self.reset()
 
