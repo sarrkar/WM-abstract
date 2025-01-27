@@ -12,6 +12,10 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 
+import multiprocessing
+import torch.multiprocessing as mp
+from functools import partial
+
 from tasks.dms import DMSDataset
 from tasks.ctx_dms import CtxDMSDataset
 from tasks.nback import NBackDataset
@@ -129,36 +133,6 @@ dataloaders = {
       {"features": ["identity", "position", "category"]}
     )
 }
-batch_size = 128
-
-# Instantiate MultiTaskDataset for training and validation
-train_multi_task_dataset = MultiTaskDataset(dataloaders_dict=dataloaders, mode='train')
-val_multi_task_dataset = MultiTaskDataset(dataloaders_dict=dataloaders, mode='val')
-
-
-
-train_dataloader = DataLoader(
-    train_multi_task_dataset,
-    batch_size=batch_size,
-    shuffle=True,
-    num_workers=4,
-    pin_memory=True,
-    collate_fn=custom_collate
-)
-
-val_dataloader = DataLoader(
-    val_multi_task_dataset,
-    batch_size=batch_size,
-    shuffle=False,
-    num_workers=4,
-    pin_memory=True,
-    collate_fn=custom_collate
-)
-
-
-rnn_types = ['GRU']
-input_size = 16 + 43 # todo: modify based on the number of categories, identities, and positions + total number of tasks
-output_size = 3  # 3 possible actions
 
 
 def train_model(model, train_dataloader, val_dataloader, num_epochs=2000, learning_rate=0.001, verbose=False, savefolder = None):
@@ -285,7 +259,7 @@ def train_model(model, train_dataloader, val_dataloader, num_epochs=2000, learni
             break
     
     # save the model
-    final_model_path = os.path.join(savefolder, f'final_model_rep5.pth')
+    final_model_path = os.path.join(savefolder, f'final_model_rep%d.pth'%rep_index)
     torch.save(model.state_dict(), final_model_path)
     print(f"Final models is saved at {final_model_path}")
 
@@ -327,7 +301,7 @@ def train_model(model, train_dataloader, val_dataloader, num_epochs=2000, learni
     plt.legend()
 
     plt.tight_layout()
-    plt.savefig(os.path.join(results_dir, f'training_trajectories_rep5.png'))
+    plt.savefig(os.path.join(savefolder, f'training_trajectories_rep%d.png'%rep_index))
 
     # Plot per-task accuracy for training and validation
     task_names = list(dataloaders.keys())
@@ -344,7 +318,7 @@ def train_model(model, train_dataloader, val_dataloader, num_epochs=2000, learni
     plt.title(f'per task training Accuracy')
     plt.legend(loc = "upper left", bbox_to_anchor=(1,1), borderaxespad=0)
     plt.tight_layout()
-    plt.savefig(os.path.join(results_dir, f'per_task_training_trajectories_rep5.png'))
+    plt.savefig(os.path.join(savefolder, f'per_task_training_trajectories_rep%d.png'%rep_index))
 
     plt.figure(figsize=(24, 16))
     for task_id, task_name in enumerate(task_names):
@@ -357,24 +331,76 @@ def train_model(model, train_dataloader, val_dataloader, num_epochs=2000, learni
     plt.title(f'per task validation Accuracy')
     plt.legend(loc = "upper left", bbox_to_anchor=(1,1), borderaxespad=0)
     plt.tight_layout()
-    plt.savefig(os.path.join(results_dir, f'per_task_validation_trajectories_rep5.png'))
+    plt.savefig(os.path.join(savefolder, f'per_task_validation_trajectories_rep%d.png'%rep_index))
     
     # save per task accuracy
-    torch.save(task_val_accuracies, os.path.join(results_dir, f'per_task_validation_trajectories_rep5.pth'))
-    torch.save(task_train_accuracies, os.path.join(results_dir, f'per_task_training_trajectories_rep5.pth'))
+    torch.save(task_val_accuracies, os.path.join(savefolder, f'per_task_validation_trajectories_rep%d.pth'%rep_index))
+    torch.save(task_train_accuracies, os.path.join(savefolder, f'per_task_training_trajectories_rep%d.pth'%rep_index))
 
 # Training the Model
-hidden_states = [256]
-results_dir = os.path.join('/home/xiaoxuan/projects/WM-abstract', 'results')
-os.makedirs(results_dir, exist_ok=True)
+rnn_types = ['GRU']
+input_size = 16 + 43 # todo: modify based on the number of categories, identities, and positions + total number of tasks
+output_size = 3  # 3 possible actions
+batch_size = 512
+rep_index = 1
+
+# Instantiate MultiTaskDataset for training and validation
+train_multi_task_dataset = MultiTaskDataset(dataloaders_dict=dataloaders, mode='train')
+val_multi_task_dataset = MultiTaskDataset(dataloaders_dict=dataloaders, mode='val')
+
+train_dataloader = DataLoader(
+    train_multi_task_dataset,
+    batch_size=batch_size,
+    shuffle=True,
+    num_workers=0,
+    pin_memory=True,
+    collate_fn=custom_collate
+)
+
+val_dataloader = DataLoader(
+    val_multi_task_dataset,
+    batch_size=batch_size,
+    shuffle=False,
+    num_workers=0,
+    pin_memory=True,
+    collate_fn=custom_collate
+)
+
+def train_model_parallel(hidden_size, rnn_type, rep_index, results_dir):
+    print(f'Training with RNN type: {rnn_type}, Hidden size: {hidden_size}, Rep index: {rep_index}')
+    model = CustomRNN(input_size, hidden_size, output_size, rnn_type).to(device)
+    train_model(
+        model, 
+        train_dataloader, 
+        val_dataloader, 
+        num_epochs=5000, 
+        learning_rate=0.001, 
+        verbose=True, 
+        savefolder=results_dir
+    )
+    print(f'Training complete for RNN type: {rnn_type}, Hidden size: {hidden_size}, Rep index: {rep_index}')
 
 
 
-for hidden_size in hidden_states:
-    for rnn_type in rnn_types:
-        print(f'Training with RNN type: {rnn_type}, Hidden size: {hidden_size}')
-        model = CustomRNN(input_size, hidden_size, output_size, rnn_type).to(device)
-        train_model(model, train_dataloader, val_dataloader, 
-                    num_epochs=3000, learning_rate=0.001, verbose=True, savefolder=results_dir)
-        
-        print('-' * 80)
+
+# Ensure the spawn method is used for multiprocessing
+if __name__ == "__main__":
+    mp.set_start_method("spawn", force=True)
+
+    hidden_states = [256]
+    num_repeats = 5  # Number of repetitions per configuration
+
+    results_dir = os.path.join('/home/xiaoxuan/projects/WM-abstract', 'results')
+    os.makedirs(results_dir, exist_ok=True)
+
+    # Create tasks for multiprocessing
+    tasks = []
+    for hidden_size in hidden_states:
+        for rnn_type in rnn_types:
+            for rep_index in range(1, num_repeats + 1):
+                tasks.append((hidden_size, rnn_type, rep_index, results_dir))
+
+    # Use multiprocessing to train models in parallel
+    with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
+        pool.starmap(train_model_parallel, tasks)
+

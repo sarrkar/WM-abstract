@@ -18,9 +18,9 @@ from tasks.nback import NBackDataset
 from tasks.inter_dms import InterDMSDataset
 
 from models.RNN_model import CustomRNN
-from helper import MultiTaskDataset, custom_collate, binary_encoding_conversion
+from helper import MultiTaskDataset, custom_collate, binary_encoding_conversion, create_combined_int_mapping, reorder_combined_int_by_feature
 
-savefolder = "/home/xiaoxuan/projects/WM-abstract/results"
+savefolder = "/home/xiaoxuan/projects/WM-abstract/eval_results"
 
 # Define device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -36,9 +36,20 @@ batch_size = 128
 n_unique_stimuli = position_size * (category_size * identity_size)
 model = CustomRNN(input_size, hidden_size, output_size, rnn_type).to(device)
 
+combined_int_mapping = create_combined_int_mapping(category_size, identity_size, position_size)
+print(f"combined_int_mapping: {len(combined_int_mapping)}")
+# Reorder combined_int by category
+reordered_by_category = reorder_combined_int_by_feature(combined_int_mapping, feature='category')
+
+# Reorder combined_int by identity
+reordered_by_identity = reorder_combined_int_by_feature(combined_int_mapping, feature='identity')
+
+# Reorder combined_int by position
+reordered_by_position = reorder_combined_int_by_feature(combined_int_mapping, feature='position')
+
 # Load the saved model
 results_dir = os.path.join('/home/xiaoxuan/projects/WM-abstract', 'results')
-saved_model_path = os.path.join(results_dir, f'final_model_rep5.pth')
+saved_model_path = os.path.join(results_dir, f'final_model_rep1.pth')
 model.load_state_dict(torch.load(saved_model_path))
 model.eval()  # Set the model to evaluation mode
 
@@ -46,21 +57,21 @@ print(f"Model loaded from {saved_model_path}")
 
 # Define the task
 dataloaders = {
-    # 'dms_category': (DMSDataset, {"feature": "category"}),
-    # 'dms_identity': (DMSDataset, {"feature": "identity"}),
-    # 'dms_position': (DMSDataset, {"feature": "position"}),
+    'dms_category': (DMSDataset, {"feature": "category"}),
+    'dms_identity': (DMSDataset, {"feature": "identity"}),
+    'dms_position': (DMSDataset, {"feature": "position"}),
 
-    '1back_category': (NBackDataset, {"feature": "category", "nback_n": 1}),
-    '2back_category': (NBackDataset, {"feature": "category", "nback_n": 2}),
-    '3back_category': (NBackDataset, {"feature": "category", "nback_n": 3}),
+    # '1back_category': (NBackDataset, {"feature": "category", "nback_n": 1}),
+    # '2back_category': (NBackDataset, {"feature": "category", "nback_n": 2}),
+    # '3back_category': (NBackDataset, {"feature": "category", "nback_n": 3}),
 
-    '1back_position': (NBackDataset, {"feature": "position", "nback_n": 1}),
-    '2back_position': (NBackDataset, {"feature": "position", "nback_n": 2}),
-    '3back_position': (NBackDataset, {"feature": "position", "nback_n": 3}),
+    # '1back_position': (NBackDataset, {"feature": "position", "nback_n": 1}),
+    # '2back_position': (NBackDataset, {"feature": "position", "nback_n": 2}),
+    # '3back_position': (NBackDataset, {"feature": "position", "nback_n": 3}),
 
-    '1back_identity': (NBackDataset, {"feature": "identity", "nback_n": 1}),
-    '2back_identity': (NBackDataset, {"feature": "identity", "nback_n": 2}),
-    '3back_identity': (NBackDataset, {"feature": "identity", "nback_n": 3}),
+    # '1back_identity': (NBackDataset, {"feature": "identity", "nback_n": 1}),
+    # '2back_identity': (NBackDataset, {"feature": "identity", "nback_n": 2}),
+    # '3back_identity': (NBackDataset, {"feature": "identity", "nback_n": 3}),
     
     # 'interdms_AABB_category_category': (InterDMSDataset, {'pattern': 'AABB', 'feature_1': 'category', 'feature_2': 'category'}),
     # 'interdms_AABB_category_identity': (InterDMSDataset, {'pattern': 'AABB', 'feature_1': 'category', 'feature_2': 'identity'}),
@@ -74,21 +85,21 @@ dataloaders = {
     # 'interdms_ABAB_category_category': (InterDMSDataset, {'pattern': 'ABAB', 'feature_1': 'category', 'feature_2': 'category'}),
     # 'interdms_ABAB_category_identity': (InterDMSDataset, {'pattern': 'ABAB', 'feature_1': 'category', 'feature_2': 'identity'}),
     # 'interdms_ABAB_category_position': (InterDMSDataset, {'pattern': 'ABAB', 'feature_1': 'category', 'feature_2': 'position'}),
-    'interdms_ABAB_identity_category': (InterDMSDataset, {'pattern': 'ABAB', 'feature_1': 'identity', 'feature_2': 'category'}),
-    'interdms_ABAB_identity_identity': (InterDMSDataset, {'pattern': 'ABAB', 'feature_1': 'identity', 'feature_2': 'identity'}),
-    'interdms_ABAB_identity_position': (InterDMSDataset, {'pattern': 'ABAB', 'feature_1': 'identity', 'feature_2': 'position'}),
-    'interdms_ABAB_position_category': (InterDMSDataset, {'pattern': 'ABAB', 'feature_1': 'position', 'feature_2': 'category'}),
-    'interdms_ABAB_position_identity': (InterDMSDataset, {'pattern': 'ABAB', 'feature_1': 'position', 'feature_2': 'identity'}),
-    'interdms_ABAB_position_position': (InterDMSDataset, {'pattern': 'ABAB', 'feature_1': 'position', 'feature_2': 'position'}),
-    'interdms_ABBA_category_category': (InterDMSDataset, {'pattern': 'ABBA', 'feature_1': 'category', 'feature_2': 'category'}),
-    'interdms_ABBA_category_identity': (InterDMSDataset, {'pattern': 'ABBA', 'feature_1': 'category', 'feature_2': 'identity'}),
-    'interdms_ABBA_category_position': (InterDMSDataset, {'pattern': 'ABBA', 'feature_1': 'category', 'feature_2': 'position'}),
-    'interdms_ABBA_identity_category': (InterDMSDataset, {'pattern': 'ABBA', 'feature_1': 'identity', 'feature_2': 'category'}),
-    'interdms_ABBA_identity_identity': (InterDMSDataset, {'pattern': 'ABBA', 'feature_1': 'identity', 'feature_2': 'identity'}),
-    'interdms_ABBA_identity_position': (InterDMSDataset, {'pattern': 'ABBA', 'feature_1': 'identity', 'feature_2': 'position'}),
-    'interdms_ABBA_position_category': (InterDMSDataset, {'pattern': 'ABBA', 'feature_1': 'position', 'feature_2': 'category'}),
-    'interdms_ABBA_position_identity': (InterDMSDataset, {'pattern': 'ABBA', 'feature_1': 'position', 'feature_2': 'identity'}),
-    'interdms_ABBA_position_position': (InterDMSDataset, {'pattern': 'ABBA', 'feature_1': 'position', 'feature_2': 'position'}),
+    # 'interdms_ABAB_identity_category': (InterDMSDataset, {'pattern': 'ABAB', 'feature_1': 'identity', 'feature_2': 'category'}),
+    # 'interdms_ABAB_identity_identity': (InterDMSDataset, {'pattern': 'ABAB', 'feature_1': 'identity', 'feature_2': 'identity'}),
+    # 'interdms_ABAB_identity_position': (InterDMSDataset, {'pattern': 'ABAB', 'feature_1': 'identity', 'feature_2': 'position'}),
+    # 'interdms_ABAB_position_category': (InterDMSDataset, {'pattern': 'ABAB', 'feature_1': 'position', 'feature_2': 'category'}),
+    # 'interdms_ABAB_position_identity': (InterDMSDataset, {'pattern': 'ABAB', 'feature_1': 'position', 'feature_2': 'identity'}),
+    # 'interdms_ABAB_position_position': (InterDMSDataset, {'pattern': 'ABAB', 'feature_1': 'position', 'feature_2': 'position'}),
+    # 'interdms_ABBA_category_category': (InterDMSDataset, {'pattern': 'ABBA', 'feature_1': 'category', 'feature_2': 'category'}),
+    # 'interdms_ABBA_category_identity': (InterDMSDataset, {'pattern': 'ABBA', 'feature_1': 'category', 'feature_2': 'identity'}),
+    # 'interdms_ABBA_category_position': (InterDMSDataset, {'pattern': 'ABBA', 'feature_1': 'category', 'feature_2': 'position'}),
+    # 'interdms_ABBA_identity_category': (InterDMSDataset, {'pattern': 'ABBA', 'feature_1': 'identity', 'feature_2': 'category'}),
+    # 'interdms_ABBA_identity_identity': (InterDMSDataset, {'pattern': 'ABBA', 'feature_1': 'identity', 'feature_2': 'identity'}),
+    # 'interdms_ABBA_identity_position': (InterDMSDataset, {'pattern': 'ABBA', 'feature_1': 'identity', 'feature_2': 'position'}),
+    # 'interdms_ABBA_position_category': (InterDMSDataset, {'pattern': 'ABBA', 'feature_1': 'position', 'feature_2': 'category'}),
+    # 'interdms_ABBA_position_identity': (InterDMSDataset, {'pattern': 'ABBA', 'feature_1': 'position', 'feature_2': 'identity'}),
+    # 'interdms_ABBA_position_position': (InterDMSDataset, {'pattern': 'ABBA', 'feature_1': 'position', 'feature_2': 'position'}),
 
    
     }
@@ -141,9 +152,18 @@ mattered_stim_pairs = {
     'interdms_ABBA_position_position': [(0,3), (1,2)],
 }
 
-task_confusion_matrices = {task_name: np.zeros((n_unique_stimuli, n_unique_stimuli), dtype=int) for task_name in dataloaders.keys()}
+task_confusion_matrices = {task_name: np.zeros((n_unique_stimuli, n_unique_stimuli), dtype=float) for task_name in dataloaders.keys()}
 
 for i, (task_name, dataset) in enumerate(dataloaders.items()):
+    # check which reorder mapping should be used (only work for single feature tasks)
+    if 'category' in task_name:
+        reordered_mapping = reordered_by_category
+    elif 'identity' in task_name:
+        reordered_mapping = reordered_by_identity
+    elif 'position' in task_name:
+        reordered_mapping = reordered_by_position
+
+
     # collect data for each individual task
     single_task_dataloader = {task_name: dataset}
     val_single_task_dataset = MultiTaskDataset(dataloaders_dict=single_task_dataloader, mode='val', dataset_size=32*32*20)
@@ -178,8 +198,8 @@ for i, (task_name, dataset) in enumerate(dataloaders.items()):
                 stim_i_index, stim_j_index = stim_pair
                 for ci_index in range(inputs.shape[0]):
                     curr_input = inputs[ci_index]
-                    stim_i = binary_encoding_conversion(curr_input[stim_i_index])
-                    stim_j = binary_encoding_conversion(curr_input[stim_j_index])
+                    stim_i, cat_i, pos_i, id_i = binary_encoding_conversion(curr_input[stim_i_index])
+                    stim_j, cat_j, pos_j, id_j = binary_encoding_conversion(curr_input[stim_j_index])
                     
                     if f"{stim_i},{stim_j}" not in confusion_template.keys():
                         confusion_template[f"{stim_i},{stim_j}"] = []
@@ -187,13 +207,16 @@ for i, (task_name, dataset) in enumerate(dataloaders.items()):
                         confusion_template[f"{stim_i},{stim_j}"].append(predicted_actions.cpu().numpy()[ci_index, stim_j_index])
     print(len(confusion_template.keys()))
     assert len(confusion_template.keys()) == n_unique_stimuli**2
+    
     for stim_i in range(n_unique_stimuli):
         for stim_j in range(n_unique_stimuli):
             task_confusion_matrices[task_name][stim_i,stim_j] = np.mean(confusion_template[f"{stim_i},{stim_j}"])
-    
-    # Plot the confusion matrix
+            
+    # reorder the task_confusion_matrix based on the feature
+    print(f"what is the reodered_mapping: {reordered_mapping}")
+    reordered_matrix = task_confusion_matrices[task_name][np.ix_(reordered_mapping, reordered_mapping)]
     plt.figure(figsize=(24, 20))
-    sns.heatmap(task_confusion_matrices[task_name], cmap='viridis', annot=True, fmt=".1f", cbar=True)
+    sns.heatmap(reordered_matrix, cmap='viridis', annot=True, fmt=".2f", cbar=True)
     plt.title(f'{task_name} task confusion matrix, average accuracy {np.mean(accuracies)}')
     plt.xlabel('Stimulus j')
     plt.ylabel('Stimulus i')
