@@ -1,9 +1,9 @@
 from typing import Literal
 from tasks.base import TaskDataset
-from tasks.utils import get_one_hot
+from tasks.dms import get_one_hot
 
 
-class DMSDataset(TaskDataset):
+class OneBackDataset(TaskDataset):
     def __init__(
         self,
         dataset_size: int,
@@ -15,8 +15,8 @@ class DMSDataset(TaskDataset):
         std: float = 0,
         add_noise: bool = False,
     ):
-        task_len = max(2, pad_to)
-        super(DMSDataset, self).__init__(
+        task_len = max(6, pad_to)
+        super(OneBackDataset, self).__init__(
             dataset_size=dataset_size,
             task_len=task_len,
             category_size=category_size,
@@ -28,17 +28,18 @@ class DMSDataset(TaskDataset):
 
         self.feature = feature
         self.task_index = get_one_hot({
-            "category": 1,
-            "identity": 2,
-            "position": 3,
+            "category": 4,
+            "identity": 5,
+            "position": 6,
         }[feature])
 
         self.reset()
 
     def _reset(self, i):
         category, identity, position = self._set_random(self.dataset[i, 0])
-        self.actions[i, 1], _, _, _ = self._set_data(
-            self.dataset[i, 1], category, identity, position)
+        for j in range(1, 6):
+            self.actions[i, j], category, identity, position = self._set_data(
+                self.dataset[i, j], category, identity, position)
 
     def reset(self):
         for i in range(self.dataset_size):

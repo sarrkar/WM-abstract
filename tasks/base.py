@@ -8,11 +8,12 @@ class TaskDataset(Dataset):
     def __init__(
         self,
         dataset_size: int,
-        task_len: int = 6, # by default 6 frames per task
+        task_len: int = 2,
         category_size: int = 2,
         identity_size: int = 2,
         position_size: int = 4,
         std: float = 0,
+        add_noise: bool = False
     ):
         self.feature = None
         self.task_index = None
@@ -23,11 +24,14 @@ class TaskDataset(Dataset):
         self.embedding_size = self.category_size + self.category_size * \
             self.identity_size + self.position_size  # CC IIII PPPP
 
-        self.dataset = np.random.normal(loc=0, scale=std, size=(
+        if add_noise:
+            self.dataset = np.random.normal(loc=0, scale=std, size=(
             self.dataset_size, task_len, self.embedding_size))
+        else:
+            self.dataset = np.zeros((self.dataset_size, task_len, self.embedding_size))
+        
         # 0 no match 1 match 2 no action
         self.actions = np.ones((self.dataset_size, task_len)) * 2
-        self.task_len = task_len
 
     def reset(self):
         pass
@@ -38,21 +42,19 @@ class TaskDataset(Dataset):
         category: int,
         identity: int,
         position: int,
-        n_step_ago: int = 1,
     ):
         action = 0
         if random.random() < 0.5:
             action = 1
-            if n_step_ago < self.task_len:
-                if self.feature == 'category':
-                    category, identity, position = self._set_random(
-                        data, category=category)
-                elif self.feature == 'identity':
-                    category, identity, position = self._set_random(
-                        data, category=category, identity=identity)
-                elif self.feature == 'position':
-                    category, identity, position = self._set_random(
-                        data, position=position)
+            if self.feature == 'category':
+                category, identity, position = self._set_random(
+                    data, category=category)
+            elif self.feature == 'identity':
+                category, identity, position = self._set_random(
+                    data, category=category, identity=identity)
+            elif self.feature == 'position':
+                category, identity, position = self._set_random(
+                    data, position=position)
         else:
             if self.feature == 'category':
                 new_category = self._get_random(category, self.category_size)
@@ -105,6 +107,3 @@ class TaskDataset(Dataset):
 
     def __getitem__(self, idx,):
         return self.dataset[idx], self.actions[idx], self.task_index
-
-
-    

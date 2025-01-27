@@ -1,24 +1,22 @@
 from typing import Literal
 from tasks.base import TaskDataset
 from tasks.utils import get_one_hot
-from typing import List
-from typing_extensions import Literal
 
 
 class CtxDMSDataset(TaskDataset):
     def __init__(
         self,
-        dataset_size: int = 128,
-        features: List[Literal["category", "identity", "position"]] = ["category", "identity", "position"],
+        dataset_size: int,
+        features: list[Literal["category", "identity", "position"]] = [
+            "category", "identity", "position"],
         pad_to: int = 0,
-        category_size: int = 4,
+        category_size: int = 2,
         identity_size: int = 2,
         position_size: int = 4,
         std: float = 0,
-        task_index_base_value: int = 36,
-        total_tasks: int = 43
+        add_noise: bool = False,
     ):
-        task_len = max(6, pad_to)
+        task_len = max(3, pad_to)
         super(CtxDMSDataset, self).__init__(
             dataset_size=dataset_size,
             task_len=task_len,
@@ -26,17 +24,16 @@ class CtxDMSDataset(TaskDataset):
             identity_size=identity_size,
             position_size=position_size,
             std=std,
-            
+            add_noise=add_noise,
         )
 
         self.features = features
         self.task_index = get_one_hot(
-            task_index_base_value + 
             {
-                ("position", "category", "identity"): 1,
-                ("position", "identity", "category"): 2,
-                ("identity", "position", "category"): 3,
-                ("category", "identity", "position"): 4,
+                ("category", "identity", "position"): 13,
+                ("position", "category", "identity"): 14,
+                ("position", "identity", "category"): 15,
+                ("identity", "position", "category"): 16,
             }[tuple(features)]
         )
 
